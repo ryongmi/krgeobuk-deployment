@@ -1,0 +1,248 @@
+// auth-server 전용 배포 파이프라인
+// 인증 서버의 빌드, 테스트, 배포를 관리합니다.
+
+@Library('krgeobuk-shared-library') _
+
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'prod'],
+            description: '배포 환경'
+        )
+        string(
+            name: 'GIT_BRANCH',
+            defaultValue: 'dev',
+            description: 'Git 브랜치 (dev: dev 브랜치, prod: main 브랜치)'
+        )
+        booleanParam(
+            name: 'SKIP_TESTS',
+            defaultValue: false,
+            description: '테스트 건너뛰기'
+        )
+        booleanParam(
+            name: 'RUN_E2E_TESTS',
+            defaultValue: false,
+            description: 'E2E 테스트 실행'
+        )
+    }
+
+    environment {
+        SERVICE_NAME = 'auth-server'
+        DOCKER_REGISTRY = 'krgeobuk'
+        DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
+
+        // Git 설정
+        GIT_REPO = 'https://github.com/your-org/auth-server.git'
+        GIT_CREDENTIALS_ID = 'github-credentials'
+
+        // 빌드 정보
+        BUILD_TIMESTAMP = sh(script: "date +%Y%m%d-%H%M%S", returnStdout: true).trim()
+        GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+        IMAGE_TAG = "${BUILD_TIMESTAMP}-${GIT_COMMIT_SHORT}"
+
+        // K8s 설정
+        K8S_NAMESPACE = params.ENVIRONMENT == 'prod' ? 'krgeobuk-prod' : 'krgeobuk-dev'
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        timestamps()
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
+    stages {
+        stage('📋 Prepare') {
+            steps {
+                script {
+                    echo """
+                    =========================================
+                    auth-server 배포 파이프라인
+                    =========================================
+                    환경: ${params.ENVIRONMENT}
+                    브랜치: ${params.GIT_BRANCH}
+                    네임스페이스: ${env.K8S_NAMESPACE}
+                    이미지 태그: ${env.IMAGE_TAG}
+                    =========================================
+                    """
+                }
+            }
+        }
+
+        stage('🔍 Checkout') {
+            steps {
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: "*/${params.GIT_BRANCH}"]],
+                    userRemoteConfigs: [[
+                        url: env.GIT_REPO,
+                        credentialsId: env.GIT_CREDENTIALS_ID
+                    ]]
+                ])
+            }
+        }
+
+        stage('📦 Install Dependencies') {
+            steps {
+                sh '''
+                    echo "Installing dependencies..."
+                    npm ci
+                '''
+            }
+        }
+
+        stage('🧪 Run Tests') {
+            when {
+                expression { !params.SKIP_TESTS }
+            }
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        sh '''
+                            echo "Running unit tests..."
+                            npm run test
+                        '''
+                    }
+                }
+                stage('Lint') {
+                    steps {
+                        sh '''
+                            echo "Running linter..."
+                            npm run lint
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('🧪 E2E Tests') {
+            when {
+                expression { params.RUN_E2E_TESTS }
+            }
+            steps {
+                sh '''
+                    echo "Running E2E tests..."
+                    npm run test:e2e
+                '''
+            }
+        }
+
+        stage('🏗️ Build') {
+            steps {
+                sh '''
+                    echo "Building application..."
+                    npm run build
+                '''
+            }
+        }
+
+        stage('🐳 Build Docker Image') {
+            steps {
+                script {
+                    buildImage(
+                        serviceName: env.SERVICE_NAME,
+                        imageTag: env.IMAGE_TAG,
+                        dockerRegistry: env.DOCKER_REGISTRY,
+                        additionalTags: params.ENVIRONMENT == 'prod' ? ['latest'] : []
+                    )
+                }
+            }
+        }
+
+        stage('🚀 Deploy to Kubernetes') {
+            steps {
+                script {
+                    // Production 배포는 수동 승인 필요
+                    if (params.ENVIRONMENT == 'prod') {
+                        input message: 'Production 환경에 배포하시겠습니까?',
+                              ok: 'Deploy to Production',
+                              submitter: 'admin,devops'
+                    }
+
+                    // K8s 배포
+                    deployToK8s(
+                        environment: params.ENVIRONMENT,
+                        service: env.SERVICE_NAME,
+                        imageTag: env.IMAGE_TAG,
+                        namespace: env.K8S_NAMESPACE
+                    )
+                }
+            }
+        }
+
+        stage('✅ Verify Deployment') {
+            steps {
+                script {
+                    echo "Verifying deployment..."
+                    sh """
+                        kubectl rollout status deployment/${env.SERVICE_NAME} -n ${env.K8S_NAMESPACE} --timeout=5m
+                        kubectl get pods -n ${env.K8S_NAMESPACE} -l app=${env.SERVICE_NAME}
+                    """
+                }
+            }
+        }
+
+        stage('🔍 Health Check') {
+            steps {
+                script {
+                    echo "Running health check..."
+                    sh """
+                        # Pod가 Ready 상태인지 확인
+                        kubectl wait --for=condition=ready pod -l app=${env.SERVICE_NAME} -n ${env.K8S_NAMESPACE} --timeout=300s
+
+                        # Health 엔드포인트 확인
+                        POD_NAME=\$(kubectl get pod -n ${env.K8S_NAMESPACE} -l app=${env.SERVICE_NAME} -o jsonpath='{.items[0].metadata.name}')
+                        kubectl exec \$POD_NAME -n ${env.K8S_NAMESPACE} -- curl -f http://localhost:8000/health || exit 1
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                notifySlack(
+                    status: 'SUCCESS',
+                    environment: params.ENVIRONMENT,
+                    service: env.SERVICE_NAME,
+                    message: """
+                    ✅ auth-server 배포 성공
+                    환경: ${params.ENVIRONMENT}
+                    이미지: ${env.DOCKER_REGISTRY}/${env.SERVICE_NAME}:${env.IMAGE_TAG}
+                    네임스페이스: ${env.K8S_NAMESPACE}
+                    """.stripIndent()
+                )
+            }
+        }
+        failure {
+            script {
+                notifySlack(
+                    status: 'FAILURE',
+                    environment: params.ENVIRONMENT,
+                    service: env.SERVICE_NAME,
+                    message: """
+                    ❌ auth-server 배포 실패
+                    환경: ${params.ENVIRONMENT}
+                    에러 확인: ${env.BUILD_URL}console
+                    """.stripIndent()
+                )
+            }
+        }
+        always {
+            // 테스트 결과 보관
+            junit allowEmptyResults: true, testResults: '**/test-results/**/*.xml'
+
+            // 빌드 아티팩트 정리
+            cleanWs(
+                deleteDirs: true,
+                patterns: [
+                    [pattern: 'node_modules', type: 'INCLUDE'],
+                    [pattern: 'dist', type: 'INCLUDE']
+                ]
+            )
+        }
+    }
+}

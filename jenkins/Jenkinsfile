@@ -1,0 +1,231 @@
+// krgeobuk 통합 배포 파이프라인
+// 모든 마이크로서비스의 빌드, 테스트, 배포를 관리합니다.
+
+@Library('krgeobuk-shared-library') _
+
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'prod'],
+            description: '배포 환경 선택'
+        )
+        choice(
+            name: 'SERVICE',
+            choices: [
+                'all',
+                'auth-server',
+                'authz-server',
+                'auth-client',
+                'portal-client',
+                'portal-server',
+                'my-pick-server',
+                'my-pick-client',
+                'portal-admin-client',
+                'my-pick-admin-client'
+            ],
+            description: '배포할 서비스 (all = 전체)'
+        )
+        booleanParam(
+            name: 'SKIP_TESTS',
+            defaultValue: false,
+            description: '테스트 건너뛰기'
+        )
+        booleanParam(
+            name: 'FORCE_BUILD',
+            defaultValue: false,
+            description: '변경사항 없어도 강제 빌드'
+        )
+    }
+
+    environment {
+        // Docker Registry
+        DOCKER_REGISTRY = 'krgeobuk'
+        DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
+
+        // Git 리포지토리
+        K8S_REPO = 'https://github.com/your-org/krgeobuk-k8s.git'
+        K8S_CREDENTIALS_ID = 'github-credentials'
+
+        // 빌드 정보
+        BUILD_TIMESTAMP = sh(script: "date +%Y%m%d-%H%M%S", returnStdout: true).trim()
+        GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+    }
+
+    stages {
+        stage('🔍 Prepare') {
+            steps {
+                script {
+                    echo "========================================="
+                    echo "krgeobuk 통합 배포 파이프라인"
+                    echo "========================================="
+                    echo "환경: ${params.ENVIRONMENT}"
+                    echo "서비스: ${params.SERVICE}"
+                    echo "빌드 시간: ${env.BUILD_TIMESTAMP}"
+                    echo "Git Commit: ${env.GIT_COMMIT_SHORT}"
+                    echo "========================================="
+
+                    // 환경 설정 로드
+                    def configFile = "jenkins/config/${params.ENVIRONMENT}.groovy"
+                    if (fileExists(configFile)) {
+                        load(configFile)
+                    }
+                }
+            }
+        }
+
+        stage('🏗️ Build & Test') {
+            when {
+                expression {
+                    return params.SERVICE == 'all' ||
+                           params.SERVICE in ['auth-server', 'authz-server', 'portal-server', 'my-pick-server']
+                }
+            }
+            steps {
+                script {
+                    def services = params.SERVICE == 'all'
+                        ? ['auth-server', 'authz-server', 'portal-server', 'my-pick-server']
+                        : [params.SERVICE]
+
+                    services.each { service ->
+                        stage("Build ${service}") {
+                            echo "Building ${service}..."
+
+                            // Git 클론
+                            dir(service) {
+                                git url: "https://github.com/your-org/${service}.git",
+                                    credentialsId: env.K8S_CREDENTIALS_ID,
+                                    branch: params.ENVIRONMENT == 'prod' ? 'main' : 'dev'
+
+                                // 의존성 설치
+                                sh 'npm ci'
+
+                                // 테스트 실행 (옵션)
+                                if (!params.SKIP_TESTS) {
+                                    sh 'npm run test'
+                                }
+
+                                // 빌드
+                                sh 'npm run build'
+
+                                // Docker 이미지 빌드
+                                def imageTag = "${env.BUILD_TIMESTAMP}-${env.GIT_COMMIT_SHORT}"
+                                buildImage(
+                                    serviceName: service,
+                                    imageTag: imageTag,
+                                    dockerRegistry: env.DOCKER_REGISTRY
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('🖼️ Build Frontend') {
+            when {
+                expression {
+                    return params.SERVICE == 'all' ||
+                           params.SERVICE in ['auth-client', 'portal-client', 'my-pick-client', 'portal-admin-client', 'my-pick-admin-client']
+                }
+            }
+            steps {
+                script {
+                    def frontendServices = params.SERVICE == 'all'
+                        ? ['auth-client', 'portal-client', 'my-pick-client', 'portal-admin-client', 'my-pick-admin-client']
+                        : [params.SERVICE]
+
+                    frontendServices.each { service ->
+                        stage("Build ${service}") {
+                            echo "Building ${service}..."
+
+                            dir(service) {
+                                git url: "https://github.com/your-org/${service}.git",
+                                    credentialsId: env.K8S_CREDENTIALS_ID,
+                                    branch: params.ENVIRONMENT == 'prod' ? 'main' : 'dev'
+
+                                sh 'npm ci'
+
+                                if (!params.SKIP_TESTS) {
+                                    sh 'npm run lint'
+                                }
+
+                                sh 'npm run build'
+
+                                def imageTag = "${env.BUILD_TIMESTAMP}-${env.GIT_COMMIT_SHORT}"
+                                buildImage(
+                                    serviceName: service,
+                                    imageTag: imageTag,
+                                    dockerRegistry: env.DOCKER_REGISTRY
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('📦 Deploy to Kubernetes') {
+            steps {
+                script {
+                    // K8s 리포지토리 클론
+                    dir('krgeobuk-k8s') {
+                        git url: env.K8S_REPO,
+                            credentialsId: env.K8S_CREDENTIALS_ID,
+                            branch: 'main'
+
+                        // 배포 실행
+                        if (params.ENVIRONMENT == 'prod') {
+                            // Production은 수동 승인 필요
+                            input message: 'Production 배포를 진행하시겠습니까?',
+                                  ok: 'Deploy'
+                        }
+
+                        deployToK8s(
+                            environment: params.ENVIRONMENT,
+                            service: params.SERVICE,
+                            imageTag: "${env.BUILD_TIMESTAMP}-${env.GIT_COMMIT_SHORT}"
+                        )
+                    }
+                }
+            }
+        }
+
+        stage('🔍 Smoke Test') {
+            steps {
+                script {
+                    echo "Running smoke tests..."
+                    sh "./scripts/smoke-test.sh ${params.ENVIRONMENT}"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                notifySlack(
+                    status: 'SUCCESS',
+                    environment: params.ENVIRONMENT,
+                    service: params.SERVICE,
+                    message: "배포 성공: ${params.SERVICE} → ${params.ENVIRONMENT}"
+                )
+            }
+        }
+        failure {
+            script {
+                notifySlack(
+                    status: 'FAILURE',
+                    environment: params.ENVIRONMENT,
+                    service: params.SERVICE,
+                    message: "배포 실패: ${params.SERVICE} → ${params.ENVIRONMENT}"
+                )
+            }
+        }
+        always {
+            cleanWs()
+        }
+    }
+}
