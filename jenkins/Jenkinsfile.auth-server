@@ -35,13 +35,15 @@ pipeline {
         DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
 
         // Git 설정
-        GIT_REPO = 'https://github.com/your-org/auth-server.git'
+        GIT_REPO = 'https://github.com/ryongmi/auth-server.git'
         GIT_CREDENTIALS_ID = 'github-credentials'
 
         // 빌드 정보
         BUILD_TIMESTAMP = sh(script: "date +%Y%m%d-%H%M%S", returnStdout: true).trim()
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-        IMAGE_TAG = "${BUILD_TIMESTAMP}-${GIT_COMMIT_SHORT}"
+
+        // 이미지 태그: dev는 latest, prod는 timestamp
+        IMAGE_TAG = params.ENVIRONMENT == 'dev' ? 'latest' : "${BUILD_TIMESTAMP}-${GIT_COMMIT_SHORT}"
 
         // K8s 설정
         K8S_NAMESPACE = params.ENVIRONMENT == 'prod' ? 'krgeobuk-prod' : 'krgeobuk-dev'
@@ -141,12 +143,23 @@ pipeline {
         stage('🐳 Build Docker Image') {
             steps {
                 script {
-                    buildImage(
-                        serviceName: env.SERVICE_NAME,
-                        imageTag: env.IMAGE_TAG,
-                        dockerRegistry: env.DOCKER_REGISTRY,
-                        additionalTags: params.ENVIRONMENT == 'prod' ? ['latest'] : []
-                    )
+                    if (params.ENVIRONMENT == 'dev') {
+                        // dev 환경: 로컬 이미지 빌드 (miniPC에서 사용)
+                        echo "Building local Docker image for dev environment..."
+                        sh """
+                            docker build -t ${env.SERVICE_NAME}:latest .
+                            echo "✓ Local image built: ${env.SERVICE_NAME}:latest"
+                        """
+                    } else {
+                        // prod 환경: Registry에 push
+                        echo "Building and pushing Docker image for prod environment..."
+                        buildImage(
+                            serviceName: env.SERVICE_NAME,
+                            imageTag: env.IMAGE_TAG,
+                            dockerRegistry: env.DOCKER_REGISTRY,
+                            additionalTags: ['latest']
+                        )
+                    }
                 }
             }
         }
