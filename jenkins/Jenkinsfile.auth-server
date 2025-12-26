@@ -55,6 +55,51 @@ pipeline {
         timeout(time: 30, unit: 'MINUTES')
     }
 
+    // ============================================================================
+    // GitHub Webhook 자동 빌드 설정 (주석 해제 후 사용)
+    // ============================================================================
+    // GitHub에서 push 또는 PR 이벤트 발생 시 자동으로 빌드를 트리거합니다.
+    //
+    // 사용 방법:
+    // 1. Jenkins 설정:
+    //    - Jenkins > Manage Jenkins > Configure System
+    //    - GitHub Server 추가 및 Credentials 설정
+    //    - GitHub Plugin 설치 확인
+    //
+    // 2. GitHub Webhook 설정:
+    //    - GitHub 리포지토리 > Settings > Webhooks > Add webhook
+    //    - Payload URL: http://your-jenkins-url/github-webhook/
+    //    - Content type: application/json
+    //    - Events: Push events, Pull requests
+    //
+    // 3. 아래 주석 해제:
+    //    triggers 블록의 주석을 제거하고 사용
+    //
+    // 주의사항:
+    //    - Jenkins가 인터넷에서 접근 가능해야 함 (포트 포워딩 또는 ngrok 등)
+    //    - GitHub Webhook Secret 설정 권장 (보안)
+    // ============================================================================
+
+    /*
+    triggers {
+        // GitHub webhook을 통한 자동 빌드
+        githubPush()
+
+        // 또는 특정 브랜치에 대해서만 트리거 (선택사항)
+        // GenericTrigger(
+        //     genericVariables: [
+        //         [key: 'ref', value: '$.ref']
+        //     ],
+        //     causeString: 'Triggered by GitHub push',
+        //     token: 'auth-server-webhook-token',
+        //     printContributedVariables: true,
+        //     printPostContent: true,
+        //     regexpFilterText: '$ref',
+        //     regexpFilterExpression: 'refs/heads/(dev|main)'
+        // )
+    }
+    */
+
     stages {
         stage('📋 Prepare') {
             steps {
