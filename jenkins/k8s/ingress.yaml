@@ -1,0 +1,58 @@
+# Jenkins Ingress
+# 서브도메인 방식: jenkins.krgeobuk.com
+# 경로 방식과 달리 --prefix 옵션 불필요, Webhook URL도 단순함
+#
+# DNS 설정 필요:
+#   jenkins.krgeobuk.com → 미니PC 공인 IP (A 레코드)
+#
+# 개발 환경 로컬 테스트:
+#   /etc/hosts: 192.168.0.28 jenkins.krgeobuk.local
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jenkins-ingress
+  namespace: krgeobuk-cicd
+  annotations:
+    # NGINX Ingress Controller
+    nginx.ingress.kubernetes.io/use-regex: "true"
+
+    # 타임아웃 (Jenkins 빌드 중 연결 유지)
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+
+    # 업로드 크기 (아티팩트 업로드 고려)
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+
+    # WebSocket 지원 (Blue Ocean, 실시간 빌드 로그)
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+
+    # SSL 리다이렉트
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # TLS 인증서 자동 발급 (cert-manager)
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+spec:
+  ingressClassName: nginx
+
+  tls:
+    - hosts:
+        - jenkins.krgeobuk.com
+      secretName: jenkins-tls
+
+  rules:
+    - host: jenkins.krgeobuk.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jenkins
+                port:
+                  number: 8080

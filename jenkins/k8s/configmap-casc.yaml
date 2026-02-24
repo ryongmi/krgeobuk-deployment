@@ -1,0 +1,177 @@
+# JCasC (Jenkins Configuration as Code)
+# 유저, 크레덴셜, 공유 라이브러리, Job 설정을 코드로 관리
+# 민감한 값은 Secret에서 환경변수로 주입됨 (${VAR_NAME} 형태로 참조)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-casc
+  namespace: krgeobuk-cicd
+data:
+  jenkins.yaml: |
+    jenkins:
+      systemMessage: "krgeobuk CI/CD - Managed by JCasC (Git: krgeobuk-deployment)"
+      numExecutors: 2
+      mode: NORMAL
+
+      # 인증 설정 (로컬 계정)
+      securityRealm:
+        local:
+          allowsSignup: false
+          users:
+            - id: "${JENKINS_ADMIN_ID}"
+              name: "Admin"
+              password: "${JENKINS_ADMIN_PASSWORD}"
+
+      # 권한 설정 (로그인한 사용자만 접근)
+      authorizationStrategy:
+        loggedInUsersCanDoAnything:
+          allowAnonymousRead: false
+
+      # 글로벌 환경 변수
+      globalNodeProperties:
+        - envVars:
+            env:
+              - key: DOCKER_REGISTRY
+                value: krgeobuk
+              - key: K8S_NAMESPACE_DEV
+                value: krgeobuk-dev
+              - key: K8S_NAMESPACE_PROD
+                value: krgeobuk-prod
+              - key: K8S_REPO_PATH
+                value: /var/jenkins_home/workspace/krgeobuk-k8s
+
+    # 크레덴셜 설정
+    # Secret의 환경변수를 참조하여 자동 등록
+    credentials:
+      system:
+        domainCredentials:
+          - credentials:
+              # Docker Hub / Private Registry
+              - usernamePassword:
+                  id: "docker-registry-credentials"
+                  description: "Docker Registry (krgeobuk)"
+                  username: "${DOCKER_REGISTRY_USER}"
+                  password: "${DOCKER_REGISTRY_PASSWORD}"
+                  scope: GLOBAL
+
+              # GitHub Personal Access Token
+              - usernamePassword:
+                  id: "github-credentials"
+                  description: "GitHub Credentials"
+                  username: "${GITHUB_USER}"
+                  password: "${GITHUB_TOKEN}"
+                  scope: GLOBAL
+
+              # Slack Webhook URL
+              - string:
+                  id: "slack-webhook-url"
+                  description: "Slack Webhook URL"
+                  secret: "${SLACK_WEBHOOK_URL}"
+                  scope: GLOBAL
+
+    # 글로벌 공유 라이브러리 설정
+    # krgeobuk-deployment/jenkins/shared-library/ 경로 참조
+    unclassified:
+      location:
+        url: "https://jenkins.krgeobuk.com"
+        adminAddress: "admin@krgeobuk.com"
+
+      globalLibraries:
+        libraries:
+          - name: "krgeobuk-shared-library"
+            defaultVersion: "main"
+            implicit: false
+            allowVersionOverride: true
+            retriever:
+              modernSCM:
+                scm:
+                  git:
+                    remote: "https://github.com/${GITHUB_ORG}/krgeobuk-deployment.git"
+                    credentialsId: "github-credentials"
+                    includes: "*"
+                    excludes: ""
+                libraryPath: "jenkins/shared-library"
+
+      # Slack 알림 설정
+      slackNotifier:
+        teamDomain: "${SLACK_TEAM_DOMAIN}"
+        tokenCredentialId: "slack-webhook-url"
+        room: "#krgeobuk-dev"
+        sendAsText: false
+
+      # NodeJS 도구 설정
+      nodeJSInstallation:
+        installations:
+          - name: "NodeJS-20"
+            properties:
+              - installSource:
+                  installers:
+                    - nodeJSInstaller:
+                        id: "20.18.0"
+                        npmPackagesRefreshHours: 72
+
+    # Job 정의 (Job DSL)
+    # Jenkinsfile은 각 서비스 레포 또는 krgeobuk-deployment에서 관리
+    jobs:
+      - script: |
+          multibranchPipelineJob('krgeobuk-deploy') {
+            description('krgeobuk 통합 배포 파이프라인 (dev/prod)')
+            branchSources {
+              git {
+                id('krgeobuk-deployment')
+                remote('https://github.com/${GITHUB_ORG}/krgeobuk-deployment.git')
+                credentialsId('github-credentials')
+                includes('main')
+              }
+            }
+            factory {
+              workflowBranchProjectFactory {
+                scriptPath('jenkins/Jenkinsfile')
+              }
+            }
+            triggers {
+              periodic(5)
+            }
+          }
+
+      - script: |
+          multibranchPipelineJob('auth-server-pipeline') {
+            description('auth-server CI/CD 파이프라인')
+            branchSources {
+              git {
+                id('auth-server')
+                remote('https://github.com/${GITHUB_ORG}/auth-server.git')
+                credentialsId('github-credentials')
+                includes('main dev')
+              }
+            }
+            factory {
+              workflowBranchProjectFactory {
+                scriptPath('Jenkinsfile')
+              }
+            }
+            triggers {
+              periodic(5)
+            }
+          }
+
+      - script: |
+          multibranchPipelineJob('authz-server-pipeline') {
+            description('authz-server CI/CD 파이프라인')
+            branchSources {
+              git {
+                id('authz-server')
+                remote('https://github.com/${GITHUB_ORG}/authz-server.git')
+                credentialsId('github-credentials')
+                includes('main dev')
+              }
+            }
+            factory {
+              workflowBranchProjectFactory {
+                scriptPath('Jenkinsfile')
+              }
+            }
+            triggers {
+              periodic(5)
+            }
+          }

@@ -1,0 +1,146 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+  namespace: krgeobuk-cicd
+  labels:
+    app: jenkins
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins
+  # Jenkins는 단일 인스턴스 운영 (PVC ReadWriteOnce)
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      serviceAccountName: jenkins
+
+      # Jenkins 홈 디렉토리 권한 설정 (jenkins UID: 1000)
+      initContainers:
+        - name: fix-permissions
+          image: busybox:1.36
+          command: ["sh", "-c", "chown -R 1000:1000 /var/jenkins_home"]
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+
+        # 플러그인 설치 (PVC에 없는 경우에만 실행됨)
+        - name: install-plugins
+          image: jenkins/jenkins:lts-jdk17
+          command:
+            - sh
+            - -c
+            - |
+              # 플러그인이 이미 설치된 경우 스킵 (PVC 재사용 시)
+              if [ -f /var/jenkins_home/plugins/.plugins-installed ]; then
+                echo "Plugins already installed, skipping."
+                exit 0
+              fi
+              echo "Installing plugins..."
+              jenkins-plugin-cli \
+                --plugin-file /usr/share/jenkins/plugins.txt \
+                --plugin-download-directory /var/jenkins_home/plugins
+              touch /var/jenkins_home/plugins/.plugins-installed
+              echo "Plugin installation complete."
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            - name: jenkins-plugins-config
+              mountPath: /usr/share/jenkins/plugins.txt
+              subPath: plugins.txt
+
+      containers:
+        - name: jenkins
+          image: jenkins/jenkins:lts-jdk17
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: jnlp
+              containerPort: 50000
+              protocol: TCP
+
+          env:
+            # JCasC 설정 파일 경로
+            - name: CASC_JENKINS_CONFIG
+              value: /var/jenkins_casc/jenkins.yaml
+            # 플러그인 설치 스킵 (initContainer에서 처리)
+            - name: JAVA_OPTS
+              value: >-
+                -Djenkins.install.runSetupWizard=false
+                -Dhudson.model.DirectoryBrowserSupport.CSP=
+                -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=300
+            # Secret에서 환경변수 주입 (JCasC에서 ${VAR} 형태로 참조)
+          envFrom:
+            - secretRef:
+                name: jenkins-secrets
+
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+
+          volumeMounts:
+            # Jenkins 홈 (플러그인, 빌드 히스토리)
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            # JCasC 설정 파일
+            - name: jenkins-casc
+              mountPath: /var/jenkins_casc
+              readOnly: true
+            # Docker 빌드용 소켓 (호스트 Docker 사용)
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            # Docker CLI 바이너리 (호스트에서 공유)
+            - name: docker-bin
+              mountPath: /usr/local/bin/docker
+              readOnly: true
+
+      volumes:
+        - name: jenkins-home
+          persistentVolumeClaim:
+            claimName: jenkins-pvc
+        - name: jenkins-casc
+          configMap:
+            name: jenkins-casc
+        - name: jenkins-plugins-config
+          configMap:
+            name: jenkins-plugins
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        # 호스트의 Docker CLI를 컨테이너에서 사용
+        - name: docker-bin
+          hostPath:
+            path: /usr/bin/docker
+            type: File
+
+      restartPolicy: Always

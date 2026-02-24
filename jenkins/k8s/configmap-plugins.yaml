@@ -1,0 +1,51 @@
+# Jenkins 설치 플러그인 목록
+# 첫 번째 기동 시 자동 설치, 이후 PVC에 유지됨
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-plugins
+  namespace: krgeobuk-cicd
+data:
+  plugins.txt: |
+    # Pipeline
+    workflow-aggregator:latest
+    pipeline-stage-view:latest
+    pipeline-graph-analysis:latest
+
+    # Git / GitHub
+    git:latest
+    github:latest
+    github-branch-source:latest
+
+    # Docker
+    docker-workflow:latest
+    docker-commons:latest
+
+    # Credentials
+    credentials:latest
+    credentials-binding:latest
+    plain-credentials:latest
+
+    # Configuration as Code (JCasC)
+    configuration-as-code:latest
+
+    # Job DSL (JCasC에서 Job 생성용)
+    job-dsl:latest
+
+    # Slack 알림
+    slack:latest
+
+    # NodeJS (프론트엔드 빌드용)
+    nodejs:latest
+
+    # 테스트 결과
+    junit:latest
+
+    # 인증/권한
+    matrix-auth:latest
+
+    # 유틸리티
+    timestamper:latest
+    ws-cleanup:latest
+    antisamy-markup-formatter:latest
+    build-timeout:latest

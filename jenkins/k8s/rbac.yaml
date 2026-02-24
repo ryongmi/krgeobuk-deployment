@@ -1,0 +1,44 @@
+# Jenkins가 krgeobuk-dev, krgeobuk-prod 네임스페이스에 배포할 수 있는 권한
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: jenkins-deploy-role
+rules:
+  # 배포 관련
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Pod 조회 및 로그 (배포 상태 확인, smoke test)
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec"]
+    verbs: ["get", "list", "watch"]
+  # Service, ConfigMap 조회
+  - apiGroups: [""]
+    resources: ["services", "endpoints", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Ingress 조회
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  # Namespace 조회 (kubectl get namespace)
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+  # rollout status 확인
+  - apiGroups: ["apps"]
+    resources: ["deployments/status", "replicasets/status"]
+    verbs: ["get", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins-deploy-binding
+subjects:
+  - kind: ServiceAccount
+    name: jenkins
+    namespace: krgeobuk-cicd
+roleRef:
+  kind: ClusterRole
+  name: jenkins-deploy-role
+  apiGroup: rbac.authorization.k8s.io

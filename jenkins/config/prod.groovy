@@ -37,14 +37,14 @@ env.REDIS_PORT = '6379'
 // 서비스별 데이터베이스 (프로덕션)
 env.AUTH_DB = 'auth_prod'
 env.AUTHZ_DB = 'authz_prod'
-env.PORTAL_DB = 'portal'
-env.MYPICK_DB = 'mypick'
+env.PORTAL_DB = 'portal_prod'
+env.MYPICK_DB = 'mypick_prod'
 
 // Redis DB 번호
 env.AUTH_REDIS_DB = '1'
 env.AUTHZ_REDIS_DB = '3'
-env.PORTAL_REDIS_DB = '4'
-env.MYPICK_REDIS_DB = '5'
+env.PORTAL_REDIS_DB = '5'
+env.MYPICK_REDIS_DB = '7'
 
 // 알림 설정
 env.SLACK_CHANNEL = '#krgeobuk-prod'
