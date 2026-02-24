@@ -46,7 +46,7 @@ pipeline {
         DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
 
         // Git 리포지토리
-        K8S_REPO = 'https://github.com/your-org/krgeobuk-k8s.git'
+        K8S_REPO = "https://github.com/${env.GITHUB_ORG}/krgeobuk-k8s.git"
         K8S_CREDENTIALS_ID = 'github-credentials'
 
         // 빌드 정보
@@ -92,7 +92,7 @@ pipeline {
 
                             // Git 클론
                             dir(service) {
-                                git url: "https://github.com/your-org/${service}.git",
+                                git url: "https://github.com/${env.GITHUB_ORG}/${service}.git",
                                     credentialsId: env.K8S_CREDENTIALS_ID,
                                     branch: params.ENVIRONMENT == 'prod' ? 'main' : 'dev'
 
@@ -139,7 +139,7 @@ pipeline {
                             echo "Building ${service}..."
 
                             dir(service) {
-                                git url: "https://github.com/your-org/${service}.git",
+                                git url: "https://github.com/${env.GITHUB_ORG}/${service}.git",
                                     credentialsId: env.K8S_CREDENTIALS_ID,
                                     branch: params.ENVIRONMENT == 'prod' ? 'main' : 'dev'
 

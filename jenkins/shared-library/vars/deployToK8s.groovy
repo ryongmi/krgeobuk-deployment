@@ -48,7 +48,7 @@ def call(Map config) {
         // K8s 리포지토리 클론 (이미 없는 경우)
         if (!fileExists(k8sRepo)) {
             sh """
-                git clone ${env.K8S_REPO ?: 'https://github.com/your-org/krgeobuk-k8s.git'} ${k8sRepo}
+                git clone ${env.K8S_REPO ?: "https://github.com/${env.GITHUB_ORG}/krgeobuk-k8s.git"} ${k8sRepo}
             """
         }
 

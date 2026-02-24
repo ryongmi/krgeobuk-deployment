@@ -35,7 +35,7 @@ pipeline {
         DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
 
         // Git 설정
-        GIT_REPO = 'https://github.com/ryongmi/my-pick-admin-client.git'
+        GIT_REPO = "https://github.com/${env.GITHUB_ORG}/my-pick-admin-client.git"
         GIT_CREDENTIALS_ID = 'github-credentials'
 
         // 빌드 정보

@@ -34,7 +34,7 @@ pipeline {
         DOCKER_REGISTRY = 'krgeobuk'
         DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
 
-        GIT_REPO = 'https://github.com/ryongmi/authz-server.git'
+        GIT_REPO = "https://github.com/${env.GITHUB_ORG}/authz-server.git"
         GIT_CREDENTIALS_ID = 'github-credentials'
 
         BUILD_TIMESTAMP = sh(script: "date +%Y%m%d-%H%M%S", returnStdout: true).trim()
