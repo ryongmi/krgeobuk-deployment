@@ -136,27 +136,78 @@ Jenkins 기동 후 각 서비스 레포지토리에 Webhook을 등록합니다.
 
 ## 파이프라인 사용
 
-### Job 구조
+### Job 구조 (Seed Job 패턴)
 
-JCasC에 의해 자동 생성되는 Job 목록:
+JCasC는 `seed-job` 하나만 생성합니다. `seed-job`이 실행되면 `jenkins/jobs/*.groovy`를 처리하여 나머지 파이프라인 Job을 자동으로 생성/갱신합니다.
 
-| Job | 설명 | Jenkinsfile 위치 |
-|---|---|---|
-| `krgeobuk-deploy` | 통합 배포 파이프라인 (dev/prod 전체) | `jenkins/Jenkinsfile` |
-| `auth-server-pipeline` | auth-server CI/CD | 각 서비스 레포 `Jenkinsfile` |
-| `authz-server-pipeline` | authz-server CI/CD | 각 서비스 레포 `Jenkinsfile` |
+```
+Jenkins 기동
+    ↓ JCasC
+seed-job 생성 (freeStyleJob)
+    ↓ 수동 실행 or krgeobuk-deployment push
+jenkins/jobs/*.groovy 처리 (Job DSL)
+    ↓
+서비스별 파이프라인 Job 생성/갱신
+```
+
+JCasC가 생성하는 Job:
+
+| Job | 설명 |
+|---|---|
+| `seed-job` | Job DSL Seed Job (모든 파이프라인 Job 관리) |
+
+`seed-job` 실행 후 생성되는 Job:
+
+| Job | Jenkinsfile 위치 |
+|---|---|
+| `krgeobuk-deploy` | `jenkins/Jenkinsfile` |
+| `auth-server-pipeline` | `jenkins/Jenkinsfile.auth-server` |
+| `auth-client-pipeline` | `jenkins/Jenkinsfile.auth-client` |
+| `authz-server-pipeline` | `jenkins/Jenkinsfile.authz-server` |
+| `portal-server-pipeline` | `jenkins/Jenkinsfile.portal-server` |
+| `portal-client-pipeline` | `jenkins/Jenkinsfile.portal-client` |
+| `my-pick-server-pipeline` | `jenkins/Jenkinsfile.my-pick-server` |
+| `my-pick-client-pipeline` | `jenkins/Jenkinsfile.my-pick-client` |
+| `portal-admin-client-pipeline` | `jenkins/Jenkinsfile.portal-admin-client` |
+| `my-pick-admin-client-pipeline` | `jenkins/Jenkinsfile.my-pick-admin-client` |
+
+모든 Jenkinsfile은 `krgeobuk-deployment` 리포지토리에서 관리되며, 각 파이프라인은 빌드 시 서비스 레포를 직접 클론합니다.
+
+### Step 4. seed-job 실행 (최초 1회)
+
+Jenkins 기동 후 seed-job을 수동으로 1회 실행합니다.
+
+```
+Jenkins 웹 UI → seed-job → Build Now
+```
+
+실행 후 서비스별 파이프라인 Job이 자동 생성됩니다.
+
+#### 스크립트 승인 (sandbox: false)
+
+seed-job이 `System.getenv()` 호출을 위해 sandbox 외부에서 실행됩니다.
+최초 실행 시 스크립트 승인이 필요할 수 있습니다:
+
+```
+Manage Jenkins → In-process Script Approval → 승인
+```
+
+이후 push to krgeobuk-deployment → GitHub Webhook → seed-job 자동 실행으로 Job 정의가 갱신됩니다.
 
 ### 수동 배포 실행
 
 ```
-Jenkins 웹 UI → 해당 Job → Build with Parameters
+Jenkins 웹 UI → 해당 서비스 pipeline Job → Build with Parameters
   ENVIRONMENT: dev 또는 prod
-  SERVICE: all 또는 특정 서비스명
+  GIT_BRANCH: dev 또는 main
 ```
 
 ### 자동 배포 (Webhook)
 
-git push → GitHub Webhook → Jenkins 자동 트리거 → 빌드/배포
+krgeobuk-deployment push → GitHub Webhook → seed-job 자동 트리거 → Job 정의 갱신
+
+서비스 레포 push 시 자동 배포가 필요한 경우 각 서비스 레포 Webhook을 Jenkins에 연결하거나,
+`krgeobuk-deploy` Job을 통해 통합 배포를 실행합니다.
 
 ---
 

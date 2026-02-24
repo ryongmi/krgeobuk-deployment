@@ -111,67 +111,39 @@ data:
                         npmPackagesRefreshHours: 72
 
     # Job 정의 (Job DSL)
-    # Jenkinsfile은 각 서비스 레포 또는 krgeobuk-deployment에서 관리
+    # seed-job 하나만 생성하고, seed-job이 jenkins/jobs/**/*.groovy 를 읽어
+    # 나머지 모든 파이프라인 Job을 자동 생성/갱신합니다.
+    #
+    # 실행 순서:
+    #   1. Jenkins 기동 → JCasC가 seed-job 생성
+    #   2. seed-job 수동 실행 (또는 krgeobuk-deployment push 시 자동 실행)
+    #   3. jenkins/jobs/*.groovy 처리 → 서비스별 파이프라인 Job 생성
+    #
+    # sandbox: false → System.getenv() 사용 허용
+    # 최초 실행 시 Jenkins 관리자 페이지에서 스크립트 승인이 필요할 수 있습니다.
+    # Manage Jenkins → In-process Script Approval
     jobs:
       - script: |
-          multibranchPipelineJob('krgeobuk-deploy') {
-            description('krgeobuk 통합 배포 파이프라인 (dev/prod)')
-            branchSources {
+          freeStyleJob('seed-job') {
+            description('Job DSL Seed Job - jenkins/jobs/*.groovy 처리하여 모든 파이프라인 Job 자동 생성/갱신')
+            scm {
               git {
-                id('krgeobuk-deployment')
-                remote('https://github.com/${GITHUB_ORG}/krgeobuk-deployment.git')
-                credentialsId('github-credentials')
-                includes('main')
-              }
-            }
-            factory {
-              workflowBranchProjectFactory {
-                scriptPath('jenkins/Jenkinsfile')
+                remote {
+                  url("https://github.com/${System.getenv('GITHUB_ORG')}/krgeobuk-deployment.git")
+                  credentials('github-credentials')
+                }
+                branch('*/main')
               }
             }
             triggers {
-              periodic(5)
+              githubPush()
             }
-          }
-
-      - script: |
-          multibranchPipelineJob('auth-server-pipeline') {
-            description('auth-server CI/CD 파이프라인')
-            branchSources {
-              git {
-                id('auth-server')
-                remote('https://github.com/${GITHUB_ORG}/auth-server.git')
-                credentialsId('github-credentials')
-                includes('main dev')
+            steps {
+              jobDsl {
+                targets('jenkins/jobs/**/*.groovy')
+                removedJobAction('IGNORE')
+                removedViewAction('IGNORE')
+                sandbox(false)
               }
-            }
-            factory {
-              workflowBranchProjectFactory {
-                scriptPath('Jenkinsfile')
-              }
-            }
-            triggers {
-              periodic(5)
-            }
-          }
-
-      - script: |
-          multibranchPipelineJob('authz-server-pipeline') {
-            description('authz-server CI/CD 파이프라인')
-            branchSources {
-              git {
-                id('authz-server')
-                remote('https://github.com/${GITHUB_ORG}/authz-server.git')
-                credentialsId('github-credentials')
-                includes('main dev')
-              }
-            }
-            factory {
-              workflowBranchProjectFactory {
-                scriptPath('Jenkinsfile')
-              }
-            }
-            triggers {
-              periodic(5)
             }
           }
