@@ -43,7 +43,6 @@ pipeline {
         // 이미지 태그: dev는 latest, prod는 timestamp
         IMAGE_TAG = params.ENVIRONMENT == 'dev' ? 'latest' : "${BUILD_TIMESTAMP}-${GIT_COMMIT_SHORT}"
 
-        K8S_NAMESPACE = params.ENVIRONMENT == 'prod' ? 'krgeobuk-prod' : 'krgeobuk-dev'
     }
 
     options {
@@ -101,6 +100,7 @@ pipeline {
         stage('📋 Prepare') {
             steps {
                 script {
+                    load("jenkins/config/${params.ENVIRONMENT}.groovy")
                     echo """
                     =========================================
                     authz-server 배포 파이프라인
@@ -194,7 +194,7 @@ pipeline {
         stage('🚀 Deploy to Kubernetes') {
             steps {
                 script {
-                    if (params.ENVIRONMENT == 'prod') {
+                    if (env.MANUAL_APPROVAL.toBoolean()) {
                         input message: 'Production 환경에 배포하시겠습니까?',
                               ok: 'Deploy to Production',
                               submitter: 'admin,devops'
@@ -236,6 +236,7 @@ pipeline {
             script {
                 notifySlack(
                     status: 'SUCCESS',
+                    channel: env.SLACK_CHANNEL,
                     environment: params.ENVIRONMENT,
                     service: env.SERVICE_NAME,
                     message: """
@@ -250,6 +251,7 @@ pipeline {
             script {
                 notifySlack(
                     status: 'FAILURE',
+                    channel: env.SLACK_CHANNEL,
                     environment: params.ENVIRONMENT,
                     service: env.SERVICE_NAME,
                     message: """

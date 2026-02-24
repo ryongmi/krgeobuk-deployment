@@ -46,7 +46,6 @@ pipeline {
         IMAGE_TAG = params.ENVIRONMENT == 'dev' ? 'latest' : "${BUILD_TIMESTAMP}-${GIT_COMMIT_SHORT}"
 
         // K8s 설정
-        K8S_NAMESPACE = params.ENVIRONMENT == 'prod' ? 'krgeobuk-prod' : 'krgeobuk-dev'
     }
 
     options {
@@ -104,6 +103,7 @@ pipeline {
         stage('📋 Prepare') {
             steps {
                 script {
+                    load("jenkins/config/${params.ENVIRONMENT}.groovy")
                     echo """
                     =========================================
                     auth-client 배포 파이프라인
@@ -213,7 +213,7 @@ pipeline {
             steps {
                 script {
                     // Production 배포는 수동 승인 필요
-                    if (params.ENVIRONMENT == 'prod') {
+                    if (env.MANUAL_APPROVAL.toBoolean()) {
                         input message: 'Production 환경에 배포하시겠습니까?',
                               ok: 'Deploy to Production',
                               submitter: 'admin,devops'
@@ -264,6 +264,7 @@ pipeline {
             script {
                 notifySlack(
                     status: 'SUCCESS',
+                    channel: env.SLACK_CHANNEL,
                     environment: params.ENVIRONMENT,
                     service: env.SERVICE_NAME,
                     message: """
@@ -279,6 +280,7 @@ pipeline {
             script {
                 notifySlack(
                     status: 'FAILURE',
+                    channel: env.SLACK_CHANNEL,
                     environment: params.ENVIRONMENT,
                     service: env.SERVICE_NAME,
                     message: """

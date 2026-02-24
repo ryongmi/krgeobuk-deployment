@@ -67,11 +67,8 @@ pipeline {
                     echo "Git Commit: ${env.GIT_COMMIT_SHORT}"
                     echo "========================================="
 
-                    // 환경 설정 로드
-                    def configFile = "jenkins/config/${params.ENVIRONMENT}.groovy"
-                    if (fileExists(configFile)) {
-                        load(configFile)
-                    }
+                    // 환경별 공통 설정 로드 (K8S_NAMESPACE, SLACK_CHANNEL, MANUAL_APPROVAL)
+                    load("jenkins/config/${params.ENVIRONMENT}.groovy")
                 }
             }
         }

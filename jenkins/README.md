@@ -114,11 +114,18 @@ Job DSL로 각 파이프라인을 명시적으로 정의하는 Seed Job 패턴�
 | `SKIP_TESTS` | boolean | false | 테스트 건너뛰기 |
 | `RUN_E2E_TESTS` | boolean | false | E2E 테스트 실행 |
 
+**Prepare 스테이지에서 config 로드:**
+
+```groovy
+load("jenkins/config/${params.ENVIRONMENT}.groovy")
+// → env.K8S_NAMESPACE, env.SLACK_CHANNEL, env.MANUAL_APPROVAL 주입
+```
+
 **Docker 이미지 태그 전략:**
 - dev: `latest` (로컬 빌드, Registry 푸시 없음)
 - prod: `{timestamp}-{git-short-hash}` (Registry 푸시)
 
-**prod 배포 시 수동 승인** (input step) 이 필요합니다.
+**prod 배포 시 수동 승인:** `env.MANUAL_APPROVAL.toBoolean()` 이 true일 때 `input` step 실행.
 
 ---
 
@@ -183,36 +190,46 @@ notifySlack(
 
 ## 환경 설정 (config/)
 
-`Jenkinsfile`의 Prepare 스테이지에서 환경별 설정을 로드합니다.
+모든 파이프라인의 Prepare 스테이지 시작 시 환경별 설정을 로드합니다.
 
 ```groovy
-load("jenkins/config/${params.ENVIRONMENT}.groovy")
+stage('Prepare') {
+    steps {
+        script {
+            load("jenkins/config/${params.ENVIRONMENT}.groovy")
+            // 이후 env.K8S_NAMESPACE, env.SLACK_CHANNEL, env.MANUAL_APPROVAL 사용 가능
+        }
+    }
+}
 ```
 
-### dev.groovy 주요 설정
+config 파일은 **환경(dev/prod)에 따라 달라지는 공통값**만 정의합니다.
+서비스 고유값(`SERVICE_NAME`, `GIT_REPO` 등)은 각 Jenkinsfile의 `environment {}` 블록에서 정의합니다.
 
-| 항목 | 값 |
+### dev.groovy
+
+```groovy
+env.K8S_NAMESPACE   = 'krgeobuk-dev'
+env.SLACK_CHANNEL   = '#krgeobuk-dev'
+env.MANUAL_APPROVAL = false
+```
+
+### prod.groovy
+
+```groovy
+env.K8S_NAMESPACE   = 'krgeobuk-prod'
+env.SLACK_CHANNEL   = '#krgeobuk-prod'
+env.MANUAL_APPROVAL = true
+```
+
+### 역할 분리
+
+| 위치 | 담당하는 값 |
 |---|---|
-| K8s 네임스페이스 | `krgeobuk-dev` |
-| 복제본 수 | 1 |
-| 기본 브랜치 | `dev` |
-| 자동 배포 | true |
-| 수동 승인 | false |
-| E2E 테스트 | false |
-| 코드 커버리지 | 70% |
+| `config/dev.groovy`, `config/prod.groovy` | K8S_NAMESPACE, SLACK_CHANNEL, MANUAL_APPROVAL |
+| `Jenkinsfile.{서비스}` `environment {}` | SERVICE_NAME, GIT_REPO, DOCKER_REGISTRY, IMAGE_TAG 등 |
 
-### prod.groovy 주요 설정
-
-| 항목 | 값 |
-|---|---|
-| K8s 네임스페이스 | `krgeobuk-prod` |
-| 복제본 수 | 2 |
-| 기본 브랜치 | `main` |
-| 자동 배포 | false (수동 승인 필요) |
-| E2E 테스트 | true |
-| 코드 커버리지 | 80% |
-| HPA | 2~5 replica (CPU 80%) |
-| 배포 전 백업 | true |
+새 환경이 추가될 경우 config 파일 하나만 추가하면 모든 파이프라인에 즉시 반영됩니다.
 
 ---
 
