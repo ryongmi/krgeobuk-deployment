@@ -75,11 +75,19 @@ Job DSL로 각 파이프라인을 명시적으로 정의하는 Seed Job 패턴�
                           ↓
               Jenkinsfile.{서비스명} 로드 (krgeobuk-deployment SCM)
                           ↓
+              config/{dev|prod}.groovy 로드 (K8S_NAMESPACE, SLACK_CHANNEL, MANUAL_APPROVAL)
+                          ↓
               서비스 레포 클론 (GIT_BRANCH 파라미터)
                           ↓
               npm ci → 테스트/린트 → npm run build
                           ↓
-              Docker 이미지 빌드 → Registry 푸시 (prod만)
+              ┌─── dev ────────────────────────────────────┐
+              │ docker build → Docker 캐시                 │
+              │ docker save | k3s ctr images import        │
+              │ → k3s containerd (imagePullPolicy: Never)  │
+              └─── prod ───────────────────────────────────┘
+                │ docker build → Registry 푸시 (krgeobuk/...)
+              ──┘
                           ↓
               kubectl 배포 (Kustomize)
                           ↓
@@ -122,8 +130,24 @@ load("jenkins/config/${params.ENVIRONMENT}.groovy")
 ```
 
 **Docker 이미지 태그 전략:**
-- dev: `latest` (로컬 빌드, Registry 푸시 없음)
+- dev: `latest` (로컬 빌드 → k3s containerd import, Registry 푸시 없음)
 - prod: `{timestamp}-{git-short-hash}` (Registry 푸시)
+
+**dev 환경 이미지 적재 흐름:**
+
+```
+docker build -t {서비스명}:latest .
+    ↓
+docker save {서비스명}:latest | k3s ctr images import --namespace k8s.io -
+    ↓
+k3s containerd 이미지 스토어 적재
+    ↓
+K8s Pod (imagePullPolicy: Never) → containerd에서 직접 로드
+```
+
+k3s는 containerd를 사용하며 Docker 데몬과 이미지 스토어가 분리되어 있습니다.
+`docker build`만으로는 k3s Pod가 이미지를 찾을 수 없으므로 `k3s ctr images import`로 containerd에 직접 적재합니다.
+Jenkins Pod에는 `/usr/local/bin/k3s`(hostPath)와 `/run/k3s/containerd/containerd.sock`(hostPath)이 마운트되어 있어 Pod 내부에서 `k3s ctr` 명령을 실행할 수 있습니다.
 
 **prod 배포 시 수동 승인:** `env.MANUAL_APPROVAL.toBoolean()` 이 true일 때 `input` step 실행.
 

@@ -33,6 +33,8 @@ jenkins/k8s/
   ├── JCasC         ← ConfigMap (유저/크레덴셜/Job 자동 설정)
   ├── Plugins       ← PVC (10Gi, 재시작 시 재설치 불필요)
   ├── docker.sock   ← hostPath (호스트 Docker로 이미지 빌드)
+  ├── k3s 바이너리  ← hostPath /usr/local/bin/k3s (dev 이미지 import용)
+  ├── k3s 소켓      ← hostPath /run/k3s/containerd/containerd.sock
   └── ServiceAccount RBAC (kubectl 명령 직접 실행)
     ↓
 [krgeobuk-dev / krgeobuk-prod namespace 배포]
@@ -46,6 +48,8 @@ jenkins/k8s/
 | `jenkins-casc` | ConfigMap | `/var/jenkins_casc` | JCasC 설정 파일 (읽기 전용) |
 | `docker.sock` | hostPath | `/var/run/docker.sock` | 호스트 Docker 빌드용 |
 | `docker-bin` | hostPath | `/usr/local/bin/docker` | Docker CLI 바이너리 |
+| `k3s-bin` | hostPath | `/usr/local/bin/k3s` | k3s 바이너리 (dev 이미지 import용, 읽기 전용) |
+| `k3s-sock` | hostPath | `/run/k3s/containerd/containerd.sock` | k3s containerd 소켓 (dev 이미지 import용) |
 
 ### JCasC 동작 원리
 
@@ -275,11 +279,14 @@ AWS EKS 이관 시 변경이 필요한 항목만 교체합니다.
 |---|---|---|
 | StorageClass | `local-path` | `gp2` 또는 `gp3` |
 | Docker 빌드 | `docker.sock` hostPath | Kaniko (권한 불필요) |
+| k3s 바이너리 마운트 (`k3s-bin`) | hostPath `/usr/local/bin/k3s` | **불필요** (EKS는 k3s 미사용) |
+| k3s 소켓 마운트 (`k3s-sock`) | hostPath `/run/k3s/containerd/containerd.sock` | **불필요** (EKS는 k3s 미사용) |
+| dev 이미지 적재 | `k3s ctr images import` | ECR push + imagePullPolicy 변경 |
 | Jenkins 설정 (JCasC) | 변경 없음 ✅ | 변경 없음 ✅ |
-| 파이프라인 (Jenkinsfile) | 변경 없음 ✅ | 변경 없음 ✅ |
+| 파이프라인 (Jenkinsfile) | 변경 없음 ✅ | dev 빌드 스텝 수정 필요 ⚠️ |
 | Secret | K8s Secret | AWS Secrets Manager 연동 가능 |
 
-`pvc.yaml`의 `storageClassName`만 교체하면 Jenkins 설정과 파이프라인은 그대로 재사용됩니다.
+EKS 이관 시 `pvc.yaml`의 `storageClassName`, `deployment.yaml`의 k3s 관련 마운트 제거, dev 빌드 스텝 수정이 필요합니다.
 
 ---
 
@@ -315,6 +322,28 @@ ls -la /var/run/docker.sock
 # 필요 시 권한 부여
 sudo chmod 666 /var/run/docker.sock
 ```
+
+### k3s ctr images import 오류 시
+
+```bash
+# k3s 소켓 존재 여부 확인 (미니PC에서 실행)
+ls -la /run/k3s/containerd/containerd.sock
+
+# k3s 바이너리 존재 여부 확인
+ls -la /usr/local/bin/k3s
+
+# Jenkins Pod 내부에서 소켓 마운트 확인
+kubectl exec -n krgeobuk-devops deploy/jenkins -- ls -la /run/k3s/containerd/containerd.sock
+kubectl exec -n krgeobuk-devops deploy/jenkins -- ls -la /usr/local/bin/k3s
+
+# k3s containerd에 적재된 이미지 목록 확인 (미니PC에서 실행)
+k3s ctr images list --namespace k8s.io | grep {서비스명}
+```
+
+`k3s ctr images import` 실패 시 확인 사항:
+- `/run/k3s/containerd/containerd.sock` 소켓 파일이 존재하는지 확인
+- `deployment.yaml`의 `k3s-sock` 볼륨 마운트가 적용되었는지 확인 (`kubectl describe pod`)
+- k3s 서비스가 정상 실행 중인지 확인: `systemctl status k3s`
 
 ### kubectl 권한 오류 시
 
