@@ -171,11 +171,17 @@ pipeline {
             steps {
                 script {
                     if (params.ENVIRONMENT == 'dev') {
-                        // dev 환경: 로컬 이미지 빌드 (miniPC에서 사용)
+                        // dev 환경: 로컬 이미지 빌드 후 k3s containerd에 import
+                        // imagePullPolicy: Never 이므로 k3s containerd에 직접 적재 필요
                         echo "Building local Docker image for dev environment..."
                         sh """
                             docker build -t ${env.SERVICE_NAME}:latest .
                             echo "✓ Local image built: ${env.SERVICE_NAME}:latest"
+
+                            echo "Importing image to k3s containerd..."
+                            docker save ${env.SERVICE_NAME}:latest | \
+                                k3s ctr images import --namespace k8s.io -
+                            echo "✓ Image imported to k3s: ${env.SERVICE_NAME}:latest"
                         """
                     } else {
                         // prod 환경: Registry에 push

@@ -122,6 +122,13 @@ spec:
             - name: docker-bin
               mountPath: /usr/local/bin/docker
               readOnly: true
+            # k3s 바이너리 (dev 환경 이미지 import: k3s ctr images import)
+            - name: k3s-bin
+              mountPath: /usr/local/bin/k3s
+              readOnly: true
+            # k3s containerd 소켓 (dev 환경 이미지 import용)
+            - name: k3s-sock
+              mountPath: /run/k3s/containerd/containerd.sock
 
       volumes:
         - name: jenkins-home
@@ -142,5 +149,15 @@ spec:
           hostPath:
             path: /usr/bin/docker
             type: File
+        # k3s 바이너리 (dev 환경 이미지 import용)
+        - name: k3s-bin
+          hostPath:
+            path: /usr/local/bin/k3s
+            type: File
+        # k3s containerd 소켓 (dev 환경 이미지 import용)
+        - name: k3s-sock
+          hostPath:
+            path: /run/k3s/containerd/containerd.sock
+            type: Socket
 
       restartPolicy: Always
