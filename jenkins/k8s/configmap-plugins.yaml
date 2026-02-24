@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: jenkins-plugins
-  namespace: krgeobuk-cicd
+  namespace: krgeobuk-devops
 data:
   plugins.txt: |
     # Pipeline

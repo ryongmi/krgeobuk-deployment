@@ -37,7 +37,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: jenkins
-    namespace: krgeobuk-cicd
+    namespace: krgeobuk-devops
 roleRef:
   kind: ClusterRole
   name: jenkins-deploy-role

@@ -51,7 +51,7 @@ krgeobuk-deployment/
 │   ├── config/                   # 환경별 설정 (dev.groovy, prod.groovy)
 │   ├── shared-library/           # 공유 라이브러리 (buildImage, deployToK8s, notifySlack)
 │   └── k8s/                      # Jenkins K8s 배포 매니페스트
-│       ├── namespace.yaml        # krgeobuk-cicd 네임스페이스
+│       ├── namespace.yaml        # krgeobuk-devops 네임스페이스
 │       ├── serviceaccount.yaml   # Jenkins ServiceAccount
 │       ├── rbac.yaml             # ClusterRole + ClusterRoleBinding
 │       ├── pvc.yaml              # Jenkins 홈 영구 볼륨 (10Gi)
@@ -196,7 +196,7 @@ Jenkins를 Docker Compose 대신 Kubernetes에서 운영합니다.
        ↓
 [NGINX Ingress] → jenkins.krgeobuk.com
        ↓
-[Jenkins Pod - krgeobuk-cicd namespace]
+[Jenkins Pod - krgeobuk-devops namespace]
   - JCasC: 유저/크레덴셜/Job 자동 설정
   - docker.sock 마운트: 호스트 Docker로 이미지 빌드
   - ServiceAccount RBAC: kubectl 명령 직접 실행
@@ -269,10 +269,10 @@ kubectl apply -k jenkins/k8s/
 
 ```bash
 # Pod 상태 확인
-kubectl get pods -n krgeobuk-cicd
+kubectl get pods -n krgeobuk-devops
 
 # 로그 확인 (첫 기동 시 플러그인 설치로 2~5분 소요)
-kubectl logs -n krgeobuk-cicd -l app=jenkins -f
+kubectl logs -n krgeobuk-devops -l app=jenkins -f
 
 # Jenkins 접속 확인
 curl -I https://jenkins.krgeobuk.com/login
@@ -309,7 +309,7 @@ Jenkins Pod 환경변수
 kubectl apply -k jenkins/k8s/
 
 # Pod 재시작 (JCasC 재로드)
-kubectl rollout restart deployment/jenkins -n krgeobuk-cicd
+kubectl rollout restart deployment/jenkins -n krgeobuk-devops
 ```
 
 ### 클라우드 이관 시
@@ -331,21 +331,21 @@ AWS EKS 이관 시 변경이 필요한 항목만 교체하면 됩니다:
 
 ```bash
 # Pod 상태 상세 확인
-kubectl describe pod -n krgeobuk-cicd -l app=jenkins
+kubectl describe pod -n krgeobuk-devops -l app=jenkins
 
 # initContainer 로그 확인 (권한 설정 / 플러그인 설치)
-kubectl logs -n krgeobuk-cicd -l app=jenkins -c fix-permissions
-kubectl logs -n krgeobuk-cicd -l app=jenkins -c install-plugins
+kubectl logs -n krgeobuk-devops -l app=jenkins -c fix-permissions
+kubectl logs -n krgeobuk-devops -l app=jenkins -c install-plugins
 ```
 
 #### JCasC 설정이 적용되지 않을 때
 
 ```bash
 # ConfigMap 내용 확인
-kubectl get configmap jenkins-casc -n krgeobuk-cicd -o yaml
+kubectl get configmap jenkins-casc -n krgeobuk-devops -o yaml
 
 # Secret 환경변수 주입 확인
-kubectl exec -n krgeobuk-cicd deploy/jenkins -- env | grep JENKINS
+kubectl exec -n krgeobuk-devops deploy/jenkins -- env | grep JENKINS
 ```
 
 #### docker 빌드 오류 시

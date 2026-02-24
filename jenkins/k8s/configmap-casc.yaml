@@ -5,7 +5,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: jenkins-casc
-  namespace: krgeobuk-cicd
+  namespace: krgeobuk-devops
 data:
   jenkins.yaml: |
     jenkins:

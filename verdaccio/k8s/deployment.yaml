@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: verdaccio
-  namespace: krgeobuk-cicd
+  namespace: krgeobuk-devops
   labels:
     app: verdaccio
 spec:

@@ -22,7 +22,7 @@ verdaccio/k8s/
          ↓
 [NGINX Ingress] → verdaccio.krgeobuk.com
          ↓
-[Verdaccio Pod - krgeobuk-cicd namespace]
+[Verdaccio Pod - krgeobuk-devops namespace]
   ├── config.yaml     ← ConfigMap (읽기 전용)
   ├── htpasswd        ← conf PVC (Verdaccio가 직접 쓰기)
   └── storage/        ← storage PVC (패키지 파일)
@@ -90,10 +90,10 @@ kubectl apply -k verdaccio/k8s/
 
 ```bash
 # Pod 상태 확인
-kubectl get pods -n krgeobuk-cicd -l app=verdaccio
+kubectl get pods -n krgeobuk-devops -l app=verdaccio
 
 # 로그 확인
-kubectl logs -n krgeobuk-cicd -l app=verdaccio -f
+kubectl logs -n krgeobuk-devops -l app=verdaccio -f
 
 # 헬스체크
 curl https://verdaccio.krgeobuk.com/-/ping
@@ -152,7 +152,7 @@ npm install @krgeobuk/core
 kubectl apply -k verdaccio/k8s/
 
 # Pod 재시작 (설정 반영)
-kubectl rollout restart deployment/verdaccio -n krgeobuk-cicd
+kubectl rollout restart deployment/verdaccio -n krgeobuk-devops
 ```
 
 ---
@@ -168,21 +168,21 @@ docker run --rm verdaccio/verdaccio:5 \
   console.log('newuser:' + bcrypt.hashSync('password', 10))"
 
 # conf PVC의 htpasswd에 직접 추가
-kubectl exec -n krgeobuk-cicd deploy/verdaccio -- \
+kubectl exec -n krgeobuk-devops deploy/verdaccio -- \
   sh -c 'echo "newuser:HASH" >> /verdaccio/conf/htpasswd'
 ```
 
 ### 유저 목록 확인
 
 ```bash
-kubectl exec -n krgeobuk-cicd deploy/verdaccio -- \
+kubectl exec -n krgeobuk-devops deploy/verdaccio -- \
   cat /verdaccio/conf/htpasswd
 ```
 
 ### 유저 삭제
 
 ```bash
-kubectl exec -n krgeobuk-cicd deploy/verdaccio -- \
+kubectl exec -n krgeobuk-devops deploy/verdaccio -- \
   sed -i '/^username:/d' /verdaccio/conf/htpasswd
 ```
 
@@ -199,10 +199,10 @@ Docker Compose에서 저장된 패키지를 K8s PVC로 이전합니다.
 # 2. Pod이 기동된 상태에서 파일 복사
 kubectl cp \
   /path/to/verdaccio/storage/. \
-  krgeobuk-cicd/$(kubectl get pod -n krgeobuk-cicd -l app=verdaccio -o jsonpath='{.items[0].metadata.name}'):/verdaccio/storage/
+  krgeobuk-devops/$(kubectl get pod -n krgeobuk-devops -l app=verdaccio -o jsonpath='{.items[0].metadata.name}'):/verdaccio/storage/
 
 # 3. 권한 설정
-kubectl exec -n krgeobuk-cicd deploy/verdaccio -- \
+kubectl exec -n krgeobuk-devops deploy/verdaccio -- \
   chown -R 10001:65533 /verdaccio/storage
 ```
 
@@ -213,11 +213,11 @@ kubectl exec -n krgeobuk-cicd deploy/verdaccio -- \
 ### Pod가 기동되지 않을 때
 
 ```bash
-kubectl describe pod -n krgeobuk-cicd -l app=verdaccio
+kubectl describe pod -n krgeobuk-devops -l app=verdaccio
 
 # initContainer 로그 확인
-kubectl logs -n krgeobuk-cicd -l app=verdaccio -c fix-storage-permissions
-kubectl logs -n krgeobuk-cicd -l app=verdaccio -c init-htpasswd
+kubectl logs -n krgeobuk-devops -l app=verdaccio -c fix-storage-permissions
+kubectl logs -n krgeobuk-devops -l app=verdaccio -c init-htpasswd
 ```
 
 ### 패키지 publish 실패 시 (403 Forbidden)

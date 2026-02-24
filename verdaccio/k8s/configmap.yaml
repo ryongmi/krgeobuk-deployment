@@ -5,7 +5,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: verdaccio-config
-  namespace: krgeobuk-cicd
+  namespace: krgeobuk-devops
 data:
   config.yaml: |
     # 스토리지 경로
