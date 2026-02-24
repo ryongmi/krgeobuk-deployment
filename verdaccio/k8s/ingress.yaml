@@ -1,0 +1,51 @@
+# Verdaccio Ingress
+# 서브도메인 방식: verdaccio.krgeobuk.com
+#
+# DNS 설정 필요:
+#   verdaccio.krgeobuk.com → 미니PC 공인 IP (A 레코드)
+#
+# npm 레지스트리 설정:
+#   npm set registry https://verdaccio.krgeobuk.com
+#   npm set //verdaccio.krgeobuk.com/:_authToken <token>
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: verdaccio-ingress
+  namespace: krgeobuk-cicd
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+
+    # 타임아웃 (패키지 다운로드/업로드 시간 고려)
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+
+    # 업로드 크기 (패키지 업로드, config.yaml의 max_body_size와 일치)
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+
+    # SSL 리다이렉트
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # TLS 인증서 자동 발급 (cert-manager)
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
+spec:
+  ingressClassName: nginx
+
+  tls:
+    - hosts:
+        - verdaccio.krgeobuk.com
+      secretName: verdaccio-tls
+
+  rules:
+    - host: verdaccio.krgeobuk.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: verdaccio
+                port:
+                  number: 4873

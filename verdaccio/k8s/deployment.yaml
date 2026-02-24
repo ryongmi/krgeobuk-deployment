@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verdaccio
+  namespace: krgeobuk-cicd
+  labels:
+    app: verdaccio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: verdaccio
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: verdaccio
+    spec:
+      # Verdaccio 공식 이미지 기본 사용자: verdaccio (UID 10001)
+      initContainers:
+        # storage PVC 권한 설정
+        - name: fix-storage-permissions
+          image: busybox:1.36
+          command: ["sh", "-c", "chown -R 10001:65533 /verdaccio/storage"]
+          volumeMounts:
+            - name: verdaccio-storage
+              mountPath: /verdaccio/storage
+
+        # conf PVC에 htpasswd 초기화
+        # - PVC가 비어있을 때(최초 기동): Secret의 htpasswd를 복사
+        # - 이미 파일이 있을 때(재기동): 기존 htpasswd 유지 (유저 등록 내역 보존)
+        - name: init-htpasswd
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              if [ ! -f /verdaccio/conf/htpasswd ]; then
+                echo "Initializing htpasswd from secret..."
+                cp /secret/htpasswd /verdaccio/conf/htpasswd
+                chown 10001:65533 /verdaccio/conf/htpasswd
+                chmod 640 /verdaccio/conf/htpasswd
+                echo "htpasswd initialized."
+              else
+                echo "htpasswd already exists, skipping initialization."
+              fi
+          volumeMounts:
+            - name: verdaccio-conf
+              mountPath: /verdaccio/conf
+            - name: verdaccio-secrets
+              mountPath: /secret
+              readOnly: true
+
+      containers:
+        - name: verdaccio
+          image: verdaccio/verdaccio:5
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 4873
+              protocol: TCP
+
+          livenessProbe:
+            httpGet:
+              path: /-/ping
+              port: 4873
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /-/ping
+              port: 4873
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          volumeMounts:
+            # 패키지 스토리지
+            - name: verdaccio-storage
+              mountPath: /verdaccio/storage
+            # 설정 파일 (ConfigMap)
+            - name: verdaccio-config
+              mountPath: /verdaccio/conf/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            # htpasswd (PVC — Verdaccio가 직접 쓰기 가능)
+            - name: verdaccio-conf
+              mountPath: /verdaccio/conf
+
+      volumes:
+        - name: verdaccio-storage
+          persistentVolumeClaim:
+            claimName: verdaccio-storage-pvc
+        - name: verdaccio-conf
+          persistentVolumeClaim:
+            claimName: verdaccio-conf-pvc
+        - name: verdaccio-config
+          configMap:
+            name: verdaccio-config
+        - name: verdaccio-secrets
+          secret:
+            secretName: verdaccio-secrets
+
+      restartPolicy: Always

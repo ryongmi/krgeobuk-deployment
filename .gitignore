@@ -137,3 +137,4 @@ dist
 
 # Kubernetes Secrets (절대 커밋 금지)
 jenkins/k8s/secret.yaml
+verdaccio/k8s/secret.yaml

@@ -1,0 +1,98 @@
+# Verdaccio 설정 파일
+# krgeobuk-infrastructure의 config.yaml과 동일한 내용
+# K8s 환경에 맞게 listen 주소 및 url_prefix 조정
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: verdaccio-config
+  namespace: krgeobuk-cicd
+data:
+  config.yaml: |
+    # 스토리지 경로
+    storage: /verdaccio/storage
+
+    # 인증 설정
+    auth:
+      htpasswd:
+        file: /verdaccio/conf/htpasswd
+        max_users: -1
+        algorithm: bcrypt
+        rounds: 10
+
+    # 상위 레지스트리 (npm)
+    uplinks:
+      npmjs:
+        url: https://registry.npmjs.org/
+        cache: true
+
+    # 패키지 접근 제어
+    packages:
+      # @krgeobuk 스코프 패키지
+      '@krgeobuk/*':
+        access: $authenticated
+        publish: $authenticated
+        unpublish: $authenticated
+        proxy: npmjs
+
+      # 프라이빗 패키지
+      '@*/*':
+        access: $authenticated
+        publish: $authenticated
+        unpublish: $authenticated
+        proxy: npmjs
+
+      # 퍼블릭 패키지
+      '**':
+        access: $all
+        publish: $authenticated
+        unpublish: $authenticated
+        proxy: npmjs
+
+    # 서버 설정
+    server:
+      keepAliveTimeout: 60
+
+    # 웹 인터페이스
+    web:
+      title: Krgeobuk NPM Registry
+      darkMode: false
+      gravatar: true
+      sort_packages: asc
+
+    # 로그 설정
+    logs:
+      - { type: stdout, format: pretty, level: info }
+
+    # 미들웨어
+    middlewares:
+      audit:
+        enabled: true
+
+    # 보안
+    security:
+      api:
+        legacy: true
+        jwt:
+          sign:
+            expiresIn: 7d
+          verify:
+            someProp: [value]
+      web:
+        sign:
+          expiresIn: 7d
+        verify:
+          someProp: [value]
+
+    # 최대 바디 크기 (패키지 업로드)
+    max_body_size: 100mb
+
+    # K8s Ingress 서브도메인 방식 사용 시 / 유지
+    url_prefix: /
+
+    # Listen 주소
+    listen: 0.0.0.0:4873
+
+    # 실험적 기능
+    experiments:
+      token: false
+      search: false
