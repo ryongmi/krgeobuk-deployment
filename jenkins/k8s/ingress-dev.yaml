@@ -1,11 +1,11 @@
-# Jenkins Ingress - Prod 환경
-# HTTPS + Let's Encrypt 자동 인증서 발급
-# https://jenkins.krgeobuk.com
+# Jenkins Ingress - Dev 환경
+# nip.io 와일드카드 DNS 사용 (별도 DNS 설정 불필요)
+# http://jenkins.192.168.0.28.nip.io
 #
-# DNS 설정 필요:
-#   jenkins.krgeobuk.com → 미니PC 공인 IP (A 레코드)
+# nip.io: IP를 그대로 도메인처럼 사용할 수 있는 무료 와일드카드 DNS 서비스
+#   jenkins.192.168.0.28.nip.io → 자동으로 192.168.0.28로 해석
 #
-# dev 환경에서는 ingress-dev.yaml 사용
+# prod 전환 시 ingress.yaml로 교체 (TLS + 실제 도메인)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -29,23 +29,11 @@ metadata:
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection "upgrade";
 
-    # SSL 리다이렉트
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-
-    # TLS 인증서 자동 발급 (cert-manager)
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-
 spec:
   ingressClassName: nginx
 
-  tls:
-    - hosts:
-        - jenkins.krgeobuk.com
-      secretName: jenkins-tls
-
   rules:
-    - host: jenkins.krgeobuk.com
+    - host: jenkins.192.168.0.28.nip.io
       http:
         paths:
           - path: /
