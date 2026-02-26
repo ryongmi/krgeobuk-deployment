@@ -52,6 +52,8 @@ krgeobuk-deployment/
 │   ├── k8s/                          # Jenkins K8s 배포 매니페스트
 │   │   ├── configmap-casc.yaml       # JCasC 설정 (유저/크레덴셜/Job/공유라이브러리)
 │   │   ├── deployment.yaml           # Jenkins Deployment
+│   │   ├── ingress-dev.yaml          # dev:  http://jenkins.192.168.0.28.nip.io
+│   │   ├── ingress.yaml              # prod: https://jenkins.krgeobuk.com
 │   │   ├── secret.yaml.template      # Secret 템플릿 (커밋 금지)
 │   │   └── ...
 │   │
@@ -61,6 +63,8 @@ krgeobuk-deployment/
 │   └── k8s/                          # Verdaccio K8s 배포 매니페스트
 │       ├── configmap.yaml            # Verdaccio config.yaml
 │       ├── deployment.yaml
+│       ├── ingress-dev.yaml          # dev:  http://verdaccio.192.168.0.28.nip.io
+│       ├── ingress.yaml              # prod: https://verdaccio.krgeobuk.com
 │       ├── secret.yaml.template      # htpasswd Secret 템플릿 (커밋 금지)
 │       └── README.md                 # Verdaccio 배포 상세 가이드
 │
@@ -107,6 +111,10 @@ cd jenkins/k8s/
 cp secret.yaml.template secret.yaml
 vi secret.yaml   # 실제 값 입력
 
+# kustomization.yaml에서 Ingress 환경 선택
+# dev:  ingress-dev.yaml (기본값, http://jenkins.192.168.0.28.nip.io)
+# prod: ingress.yaml     (https://jenkins.krgeobuk.com)
+
 kubectl apply -f secret.yaml
 kubectl apply -k .
 ```
@@ -137,6 +145,10 @@ cd verdaccio/k8s/
 # htpasswd 해시 생성 후 Secret 생성
 cp secret.yaml.template secret.yaml
 vi secret.yaml
+
+# kustomization.yaml에서 Ingress 환경 선택
+# dev:  ingress-dev.yaml (기본값, http://verdaccio.192.168.0.28.nip.io)
+# prod: ingress.yaml     (https://verdaccio.krgeobuk.com)
 
 kubectl apply -f secret.yaml
 kubectl apply -k .
