@@ -15,9 +15,10 @@ jenkins/k8s/
 ├── configmap-casc.yaml     # JCasC 설정 (유저/크레덴셜/Job/공유라이브러리)
 ├── deployment.yaml         # Jenkins Deployment
 ├── service.yaml            # ClusterIP Service (8080, 50000)
-├── ingress.yaml            # jenkins.krgeobuk.com
+├── ingress-dev.yaml        # dev:  http://jenkins.192.168.0.28.nip.io
+├── ingress.yaml            # prod: https://jenkins.krgeobuk.com
 ├── secret.yaml.template    # Secret 템플릿 (커밋 금지)
-└── kustomization.yaml
+└── kustomization.yaml      # 환경에 맞게 ingress 둘 중 하나만 활성화
 ```
 
 ## 아키텍처
@@ -27,7 +28,9 @@ jenkins/k8s/
     ↓
 [GitHub Webhook POST]
     ↓
-[NGINX Ingress] → jenkins.krgeobuk.com
+[NGINX Ingress]
+  dev:  http://jenkins.192.168.0.28.nip.io
+  prod: https://jenkins.krgeobuk.com
     ↓
 [Jenkins Pod - krgeobuk-devops namespace]
   ├── JCasC         ← ConfigMap (유저/크레덴셜/Job 자동 설정)
@@ -99,13 +102,23 @@ vi secret.yaml   # 실제 값 입력
 kubectl apply -f jenkins/k8s/secret.yaml
 ```
 
-### Step 2. 나머지 리소스 배포
+### Step 2. Ingress 환경 선택
+
+`kustomization.yaml`에서 사용할 환경의 ingress만 활성화합니다.
+
+```yaml
+# kustomization.yaml
+  - ingress-dev.yaml    # dev:  http://jenkins.192.168.0.28.nip.io
+  # - ingress.yaml      # prod: https://jenkins.krgeobuk.com
+```
+
+### Step 3. 나머지 리소스 배포
 
 ```bash
 kubectl apply -k jenkins/k8s/
 ```
 
-### Step 3. 기동 확인
+### Step 4. 기동 확인
 
 ```bash
 # Pod 상태 확인
@@ -118,6 +131,9 @@ kubectl logs -n krgeobuk-devops -l app=jenkins -c install-plugins -f
 kubectl logs -n krgeobuk-devops -l app=jenkins -c jenkins -f
 
 # 헬스체크
+# dev
+curl -I http://jenkins.192.168.0.28.nip.io/login
+# prod
 curl -I https://jenkins.krgeobuk.com/login
 ```
 
@@ -131,10 +147,13 @@ Jenkins 기동 후 각 서비스 레포지토리에 Webhook을 등록합니다.
 
 | 항목 | 값 |
 |---|---|
-| Payload URL | `https://jenkins.krgeobuk.com/github-webhook/` |
+| Payload URL | dev: `http://jenkins.192.168.0.28.nip.io/github-webhook/`<br>prod: `https://jenkins.krgeobuk.com/github-webhook/` |
 | Content type | `application/json` |
 | Secret | (선택사항) |
 | Trigger | `Just the push event` |
+
+> dev 환경에서 GitHub Webhook을 사용하려면 미니PC가 외부에서 접근 가능해야 합니다.
+> 로컬 네트워크 전용이라면 수동으로 `Build Now`를 실행하거나 ngrok 등의 터널링 도구를 사용합니다.
 
 ---
 
@@ -359,11 +378,25 @@ kubectl apply -f jenkins/k8s/rbac.yaml
 
 ## DNS 설정
 
+### dev (nip.io)
+
+별도 DNS 설정 불필요합니다. `nip.io`가 IP를 자동으로 해석합니다.
+
+```
+jenkins.192.168.0.28.nip.io → 자동으로 192.168.0.28로 해석
+```
+
+### prod
+
 ```
 jenkins.krgeobuk.com → 미니PC 공인 IP (A 레코드)
 ```
 
-로컬 테스트 시 `/etc/hosts`에 추가:
-```
-192.168.0.28 jenkins.krgeobuk.com
+### prod로 전환
+
+`kustomization.yaml`에서 ingress 파일을 교체합니다.
+
+```yaml
+  # - ingress-dev.yaml
+  - ingress.yaml
 ```
