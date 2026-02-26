@@ -1,14 +1,11 @@
-# Verdaccio Ingress - Prod 환경
-# HTTPS + Let's Encrypt 자동 인증서 발급
-# https://verdaccio.krgeobuk.com
-#
-# DNS 설정 필요:
-#   verdaccio.krgeobuk.com → 미니PC 공인 IP (A 레코드)
+# Verdaccio Ingress - Dev 환경
+# nip.io 와일드카드 DNS 사용 (별도 DNS 설정 불필요)
+# http://verdaccio.192.168.0.28.nip.io
 #
 # npm 레지스트리 설정:
-#   npm config set @krgeobuk:registry https://verdaccio.krgeobuk.com
+#   npm config set @krgeobuk:registry http://verdaccio.192.168.0.28.nip.io
 #
-# dev 환경에서는 ingress-dev.yaml 사용
+# prod 전환 시 ingress.yaml로 교체 (TLS + 실제 도메인)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -25,23 +22,11 @@ metadata:
     # 업로드 크기 (패키지 업로드, config.yaml의 max_body_size와 일치)
     nginx.ingress.kubernetes.io/proxy-body-size: "100m"
 
-    # SSL 리다이렉트
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-
-    # TLS 인증서 자동 발급 (cert-manager)
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-
 spec:
   ingressClassName: nginx
 
-  tls:
-    - hosts:
-        - verdaccio.krgeobuk.com
-      secretName: verdaccio-tls
-
   rules:
-    - host: verdaccio.krgeobuk.com
+    - host: verdaccio.192.168.0.28.nip.io
       http:
         paths:
           - path: /

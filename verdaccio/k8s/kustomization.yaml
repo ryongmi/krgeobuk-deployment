@@ -8,4 +8,6 @@ resources:
   - configmap.yaml
   - deployment.yaml
   - service.yaml
-  - ingress.yaml
+  # Ingress: 환경에 맞게 둘 중 하나만 활성화
+  - ingress-dev.yaml    # dev:  http://verdaccio.192.168.0.28.nip.io
+  # - ingress.yaml      # prod: https://verdaccio.krgeobuk.com
