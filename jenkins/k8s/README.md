@@ -189,10 +189,10 @@ JCasC가 생성하는 Job:
 | `authz-server-pipeline` | `jenkins/Jenkinsfile.authz-server` |
 | `portal-server-pipeline` | `jenkins/Jenkinsfile.portal-server` |
 | `portal-client-pipeline` | `jenkins/Jenkinsfile.portal-client` |
-| `my-pick-server-pipeline` | `jenkins/Jenkinsfile.my-pick-server` |
-| `my-pick-client-pipeline` | `jenkins/Jenkinsfile.my-pick-client` |
+| `mypick-server-pipeline` | `jenkins/Jenkinsfile.mypick-server` |
+| `mypick-client-pipeline` | `jenkins/Jenkinsfile.mypick-client` |
 | `portal-admin-client-pipeline` | `jenkins/Jenkinsfile.portal-admin-client` |
-| `my-pick-admin-client-pipeline` | `jenkins/Jenkinsfile.my-pick-admin-client` |
+| `mypick-admin-client-pipeline` | `jenkins/Jenkinsfile.mypick-admin-client` |
 
 모든 Jenkinsfile은 `krgeobuk-deployment` 리포지토리에서 관리되며, 각 파이프라인은 빌드 시 서비스 레포를 직접 클론합니다.
 

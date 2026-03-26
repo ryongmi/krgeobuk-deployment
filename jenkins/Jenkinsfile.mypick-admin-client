@@ -1,5 +1,5 @@
-// my-pick-client 전용 배포 파이프라인
-// MyPick 클라이언트의 빌드, 테스트, 배포를 관리합니다.
+// mypick-admin-client 전용 배포 파이프라인
+// MyPick 관리자 클라이언트의 빌드, 테스트, 배포를 관리합니다.
 
 @Library('krgeobuk-shared-library') _
 
@@ -30,12 +30,12 @@ pipeline {
     }
 
     environment {
-        SERVICE_NAME = 'my-pick-client'
+        SERVICE_NAME = 'mypick-admin-client'
         DOCKER_REGISTRY = 'krgeobuk'
         DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
 
         // Git 설정
-        GIT_REPO = "https://github.com/${env.GITHUB_ORG}/my-pick-client.git"
+        GIT_REPO = "https://github.com/${env.GITHUB_ORG}/mypick-admin-client.git"
         GIT_CREDENTIALS_ID = 'github-credentials'
 
         // 빌드 정보
@@ -90,7 +90,7 @@ pipeline {
         //         [key: 'ref', value: '$.ref']
         //     ],
         //     causeString: 'Triggered by GitHub push',
-        //     token: 'my-pick-client-webhook-token',
+        //     token: 'mypick-admin-client-webhook-token',
         //     printContributedVariables: true,
         //     printPostContent: true,
         //     regexpFilterText: '$ref',
@@ -106,7 +106,7 @@ pipeline {
                     load("jenkins/config/${params.ENVIRONMENT}.groovy")
                     echo """
                     =========================================
-                    my-pick-client 배포 파이프라인
+                    mypick-admin-client 배포 파이프라인
                     =========================================
                     환경: ${params.ENVIRONMENT}
                     브랜치: ${params.GIT_BRANCH}
@@ -258,7 +258,7 @@ pipeline {
 
                         # HTTP 응답 확인 (Next.js 클라이언트)
                         POD_NAME=\$(kubectl get pod -n ${env.K8S_NAMESPACE} -l app=${env.SERVICE_NAME} -o jsonpath='{.items[0].metadata.name}')
-                        kubectl exec \$POD_NAME -n ${env.K8S_NAMESPACE} -- curl -f http://localhost:3300/ || exit 1
+                        kubectl exec \$POD_NAME -n ${env.K8S_NAMESPACE} -- curl -f http://localhost:3310/ || exit 1
                     """
                 }
             }
@@ -274,7 +274,7 @@ pipeline {
                     environment: params.ENVIRONMENT,
                     service: env.SERVICE_NAME,
                     message: """
-                    ✅ my-pick-client 배포 성공
+                    ✅ mypick-admin-client 배포 성공
                     환경: ${params.ENVIRONMENT}
                     이미지: ${env.DOCKER_REGISTRY}/${env.SERVICE_NAME}:${env.IMAGE_TAG}
                     네임스페이스: ${env.K8S_NAMESPACE}
@@ -290,7 +290,7 @@ pipeline {
                     environment: params.ENVIRONMENT,
                     service: env.SERVICE_NAME,
                     message: """
-                    ❌ my-pick-client 배포 실패
+                    ❌ mypick-admin-client 배포 실패
                     환경: ${params.ENVIRONMENT}
                     에러 확인: ${env.BUILD_URL}console
                     """.stripIndent()

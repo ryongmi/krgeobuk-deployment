@@ -13,10 +13,10 @@ jenkins/
 ├── Jenkinsfile.authz-server         # authz-server 전용 파이프라인
 ├── Jenkinsfile.portal-server        # portal-server 전용 파이프라인
 ├── Jenkinsfile.portal-client        # portal-client 전용 파이프라인
-├── Jenkinsfile.my-pick-server       # my-pick-server 전용 파이프라인
-├── Jenkinsfile.my-pick-client       # my-pick-client 전용 파이프라인
+├── Jenkinsfile.mypick-server       # mypick-server 전용 파이프라인
+├── Jenkinsfile.mypick-client       # mypick-client 전용 파이프라인
 ├── Jenkinsfile.portal-admin-client  # portal-admin-client 전용 파이프라인
-├── Jenkinsfile.my-pick-admin-client # my-pick-admin-client 전용 파이프라인
+├── Jenkinsfile.mypick-admin-client # mypick-admin-client 전용 파이프라인
 │
 ├── config/                          # 환경별 설정 파일
 │   ├── dev.groovy                   # dev 환경 변수 (네임스페이스, 리소스, 브랜치 등)
@@ -29,10 +29,10 @@ jenkins/
 │   ├── authz-server.groovy          # authz-server-pipeline Job
 │   ├── portal-server.groovy         # portal-server-pipeline Job
 │   ├── portal-client.groovy         # portal-client-pipeline Job
-│   ├── my-pick-server.groovy        # my-pick-server-pipeline Job
-│   ├── my-pick-client.groovy        # my-pick-client-pipeline Job
+│   ├── mypick-server.groovy        # mypick-server-pipeline Job
+│   ├── mypick-client.groovy        # mypick-client-pipeline Job
 │   ├── portal-admin-client.groovy   # portal-admin-client-pipeline Job
-│   └── my-pick-admin-client.groovy  # my-pick-admin-client-pipeline Job
+│   └── mypick-admin-client.groovy  # mypick-admin-client-pipeline Job
 │
 ├── shared-library/                  # Jenkins 공유 라이브러리
 │   └── vars/
@@ -271,10 +271,10 @@ Seed Job이 읽어 Jenkins에 파이프라인 Job을 생성합니다.
 | `authz-server.groovy` | `authz-server-pipeline` | `jenkins/Jenkinsfile.authz-server` |
 | `portal-server.groovy` | `portal-server-pipeline` | `jenkins/Jenkinsfile.portal-server` |
 | `portal-client.groovy` | `portal-client-pipeline` | `jenkins/Jenkinsfile.portal-client` |
-| `my-pick-server.groovy` | `my-pick-server-pipeline` | `jenkins/Jenkinsfile.my-pick-server` |
-| `my-pick-client.groovy` | `my-pick-client-pipeline` | `jenkins/Jenkinsfile.my-pick-client` |
+| `mypick-server.groovy` | `mypick-server-pipeline` | `jenkins/Jenkinsfile.mypick-server` |
+| `mypick-client.groovy` | `mypick-client-pipeline` | `jenkins/Jenkinsfile.mypick-client` |
 | `portal-admin-client.groovy` | `portal-admin-client-pipeline` | `jenkins/Jenkinsfile.portal-admin-client` |
-| `my-pick-admin-client.groovy` | `my-pick-admin-client-pipeline` | `jenkins/Jenkinsfile.my-pick-admin-client` |
+| `mypick-admin-client.groovy` | `mypick-admin-client-pipeline` | `jenkins/Jenkinsfile.mypick-admin-client` |
 
 모든 Job의 SCM은 `krgeobuk-deployment` 레포이며, 각 파이프라인이 실행될 때 서비스 레포를 직접 클론합니다.
 

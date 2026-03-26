@@ -21,10 +21,10 @@ pipeline {
                 'auth-client',
                 'portal-client',
                 'portal-server',
-                'my-pick-server',
-                'my-pick-client',
+                'mypick-server',
+                'mypick-client',
                 'portal-admin-client',
-                'my-pick-admin-client'
+                'mypick-admin-client'
             ],
             description: '배포할 서비스 (all = 전체)'
         )
@@ -77,13 +77,13 @@ pipeline {
             when {
                 expression {
                     return params.SERVICE == 'all' ||
-                           params.SERVICE in ['auth-server', 'authz-server', 'portal-server', 'my-pick-server']
+                           params.SERVICE in ['auth-server', 'authz-server', 'portal-server', 'mypick-server']
                 }
             }
             steps {
                 script {
                     def services = params.SERVICE == 'all'
-                        ? ['auth-server', 'authz-server', 'portal-server', 'my-pick-server']
+                        ? ['auth-server', 'authz-server', 'portal-server', 'mypick-server']
                         : [params.SERVICE]
 
                     services.each { service ->
@@ -125,13 +125,13 @@ pipeline {
             when {
                 expression {
                     return params.SERVICE == 'all' ||
-                           params.SERVICE in ['auth-client', 'portal-client', 'my-pick-client', 'portal-admin-client', 'my-pick-admin-client']
+                           params.SERVICE in ['auth-client', 'portal-client', 'mypick-client', 'portal-admin-client', 'mypick-admin-client']
                 }
             }
             steps {
                 script {
                     def frontendServices = params.SERVICE == 'all'
-                        ? ['auth-client', 'portal-client', 'my-pick-client', 'portal-admin-client', 'my-pick-admin-client']
+                        ? ['auth-client', 'portal-client', 'mypick-client', 'portal-admin-client', 'mypick-admin-client']
                         : [params.SERVICE]
 
                     frontendServices.each { service ->

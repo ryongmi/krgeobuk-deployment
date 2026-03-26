@@ -19,10 +19,10 @@ pipelineJob('krgeobuk-deploy') {
             'auth-client',
             'portal-client',
             'portal-server',
-            'my-pick-server',
-            'my-pick-client',
+            'mypick-server',
+            'mypick-client',
             'portal-admin-client',
-            'my-pick-admin-client'
+            'mypick-admin-client'
         ], '배포할 서비스 (all = 전체)')
         booleanParam('SKIP_TESTS', false, '테스트 건너뛰기')
         booleanParam('FORCE_BUILD', false, '변경사항 없어도 강제 빌드')

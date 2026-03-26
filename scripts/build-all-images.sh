@@ -45,10 +45,10 @@ declare -A SERVICES=(
     ["auth-client"]="../auth-client"
     ["portal-client"]="../portal-client"
     ["portal-server"]="../portal-server"
-    ["my-pick-server"]="../my-pick-server"
-    ["my-pick-client"]="../my-pick-client"
+    ["mypick-server"]="../mypick-server"
+    ["mypick-client"]="../mypick-client"
     ["portal-admin-client"]="../portal-admin-client"
-    ["my-pick-admin-client"]="../my-pick-admin-client"
+    ["mypick-admin-client"]="../mypick-admin-client"
 )
 
 # 결과 카운터

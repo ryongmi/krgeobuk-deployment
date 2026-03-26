@@ -1,10 +1,10 @@
-// my-pick-admin-client CI/CD 파이프라인 Job 정의
+// mypick-server CI/CD 파이프라인 Job 정의
 // 수동 실행: Build with Parameters → ENVIRONMENT, GIT_BRANCH 선택
 
 def githubOrg = System.getenv('GITHUB_ORG') ?: 'your-org'
 
-pipelineJob('my-pick-admin-client-pipeline') {
-    description('my-pick-admin-client CI/CD 파이프라인')
+pipelineJob('mypick-server-pipeline') {
+    description('mypick-server CI/CD 파이프라인')
 
     logRotator {
         numToKeep(30)
@@ -28,7 +28,7 @@ pipelineJob('my-pick-admin-client-pipeline') {
                     branch('*/main')
                 }
             }
-            scriptPath('jenkins/Jenkinsfile.my-pick-admin-client')
+            scriptPath('jenkins/Jenkinsfile.mypick-server')
         }
     }
 }
